@@ -1,0 +1,219 @@
+.admin-orders-page {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+}
+
+.admin-navbar {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  padding: 1rem 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.navbar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-user {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* Stat Cards */
+.stat-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.total {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-card.cod {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: white;
+}
+
+.stat-card.card {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: white;
+}
+
+.stat-card.pending {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+  color: white;
+}
+
+.stat-card.completed {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+/* Orders Table */
+.orders-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.orders-table {
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+
+.orders-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.orders-table thead th {
+  border: none;
+  font-weight: 600;
+  padding: 1rem;
+}
+
+.orders-table tbody tr {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.orders-table tbody tr:hover {
+  background-color: #f8f9ff;
+  box-shadow: inset 0 2px 5px rgba(102, 126, 234, 0.1);
+}
+
+.orders-table tbody td {
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+.order-row {
+  transition: all 0.2s ease;
+}
+
+.order-row:hover {
+  background-color: #f8f9ff;
+}
+
+.customer-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+/* Modal Styles */
+.modal-content {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-header .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+.order-detail-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.order-detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section-title {
+  color: #333;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #667eea;
+}
+
+.order-detail-section p {
+  margin-bottom: 0.5rem;
+}
+
+.order-detail-section strong {
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .stat-card {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-content {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .orders-table {
+    font-size: 0.85rem;
+  }
+
+  .orders-table thead th,
+  .orders-table tbody td {
+    padding: 0.7rem 0.5rem;
+  }
+
+  .orders-table .btn {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.75rem;
+  }
+
+  .modal {
+    padding: 0 !important;
+  }
+}
