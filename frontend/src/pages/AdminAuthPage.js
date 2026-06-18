@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, Form, Button, Alert, Spinner, Container, Row, Col } from 'react-bootstrap';
-import axios from 'axios';
+import { authAPI } from '../services/api';
 import '../styles/AuthPage.css';
 
 function AdminAuthPage() {
@@ -27,14 +27,14 @@ function AdminAuthPage() {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const { data } = await authAPI.login({
         ...loginData,
         role: 'admin'
       });
 
       // Store token and user data
-      localStorage.setItem('adminToken', response.data.token);
-      localStorage.setItem('adminUser', JSON.stringify(response.data.user));
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
 
       setSuccess('Admin login successful! Redirecting...');
       setTimeout(() => {
@@ -53,7 +53,7 @@ function AdminAuthPage() {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post('http://localhost:5000/api/auth/admin/setup', setupData);
+      await authAPI.createAdmin(setupData);
 
       setSuccess('Admin account created! Please login.');
       setIsSetup(false);

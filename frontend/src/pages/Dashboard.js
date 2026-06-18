@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Spinner } from 'react-bootstrap';
-import { analyticsAPI, invoiceAPI, customerAPI } from '../services/api';
+import { analyticsAPI } from '../services/api';
 
 function Dashboard() {
   const [analytics, setAnalytics] = useState(null);

@@ -1,20 +1,14 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const fs = require('fs');
 
 const dbPath = path.join(__dirname, '../../restaurant.db');
-
-// Check if database exists
-const dbExists = fs.existsSync(dbPath);
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err);
   } else {
     console.log('Connected to SQLite database');
-    if (!dbExists) {
-      initializeDatabase();
-    }
+    initializeDatabase();
   }
 });
 
@@ -136,8 +130,33 @@ function initializeDatabase() {
     if (err) {
       console.error('Error initializing database:', err);
     } else {
-      console.log('Database schema created successfully');
+      console.log('Database schema is ready');
+      runMigrations();
     }
+  });
+}
+
+function runMigrations() {
+  addColumnIfMissing('invoice', 'payment_method', "TEXT DEFAULT 'cod'");
+  addColumnIfMissing('invoice', 'payment_status', "TEXT DEFAULT 'unpaid'");
+}
+
+function addColumnIfMissing(tableName, columnName, definition) {
+  db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
+    if (err) {
+      console.error(`Error checking ${tableName}.${columnName}:`, err);
+      return;
+    }
+
+    if (columns.some((column) => column.name === columnName)) {
+      return;
+    }
+
+    db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`, (alterErr) => {
+      if (alterErr) {
+        console.error(`Error adding ${tableName}.${columnName}:`, alterErr);
+      }
+    });
   });
 }
 

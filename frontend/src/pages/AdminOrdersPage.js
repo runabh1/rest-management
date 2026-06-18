@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Badge, Button, Alert, Spinner, Card, Container, Row, Col, Modal, Form } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Row, Spinner, Table } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { invoiceAPI } from '../services/api';
 import '../styles/AdminOrders.css';
 
 function AdminOrdersPage() {
@@ -14,9 +14,7 @@ function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    // Check if admin is logged in
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
+    if (!localStorage.getItem('adminToken')) {
       navigate('/admin-login');
       return;
     }
@@ -27,27 +25,20 @@ function AdminOrdersPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/invoices');
+      const response = await invoiceAPI.getAll();
       setOrders(response.data);
       setError(null);
     } catch (err) {
       setError('Failed to load orders');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-    navigate('/admin-login');
-  };
-
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/invoices/${orderId}`, { status: newStatus });
-      fetchOrders();
+      await invoiceAPI.updateStatus(orderId, { status: newStatus });
+      await fetchOrders();
       setShowModal(false);
     } catch (err) {
       setError('Failed to update order status');
@@ -56,105 +47,53 @@ function AdminOrdersPage() {
 
   const filteredOrders = statusFilter === 'all'
     ? orders
-    : orders.filter(order => order.status === statusFilter);
+    : orders.filter((order) => order.status === statusFilter);
 
   const stats = {
     total: orders.length,
-    cod: orders.filter(o => o.payment_method === 'cod').length,
-    card: orders.filter(o => o.payment_method === 'card').length,
-    pending: orders.filter(o => o.payment_status === 'unpaid').length,
-    completed: orders.filter(o => o.status === 'completed').length
+    cod: orders.filter((order) => order.payment_method === 'cod').length,
+    card: orders.filter((order) => order.payment_method === 'card').length,
+    pending: orders.filter((order) => order.payment_status === 'unpaid').length,
+    completed: orders.filter((order) => order.status === 'completed').length
   };
 
-  if (loading) return <div className="text-center mt-5"><Spinner animation="border" /></div>;
+  if (loading) {
+    return <div className="text-center mt-5"><Spinner animation="border" /></div>;
+  }
 
   return (
     <div className="admin-orders-page">
-      {/* Admin Navbar */}
-      <nav className="admin-navbar">
-        <Container>
-          <div className="navbar-content">
-            <h4 className="navbar-brand">👨‍💼 Admin Dashboard</h4>
-            <div className="navbar-actions">
-              <span className="admin-user">
-                {JSON.parse(localStorage.getItem('adminUser') || '{}').name}
-              </span>
-              <Button variant="danger" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </Container>
-      </nav>
-
       <Container className="mt-4">
-        {error && <Alert variant="danger" dismissible onClose={() => setError(null)}>{error}</Alert>}
-
-        {/* Stats Cards */}
-        <Row className="mb-4">
-          <Col md={2.4} className="mb-3">
-            <Card className="stat-card total">
-              <Card.Body>
-                <div className="stat-value">{stats.total}</div>
-                <div className="stat-label">Total Orders</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={2.4} className="mb-3">
-            <Card className="stat-card cod">
-              <Card.Body>
-                <div className="stat-value">{stats.cod}</div>
-                <div className="stat-label">Cash on Delivery</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={2.4} className="mb-3">
-            <Card className="stat-card card">
-              <Card.Body>
-                <div className="stat-value">{stats.card}</div>
-                <div className="stat-label">Card Payments</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={2.4} className="mb-3">
-            <Card className="stat-card pending">
-              <Card.Body>
-                <div className="stat-value">{stats.pending}</div>
-                <div className="stat-label">Pending Payments</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={2.4} className="mb-3">
-            <Card className="stat-card completed">
-              <Card.Body>
-                <div className="stat-value">{stats.completed}</div>
-                <div className="stat-label">Completed</div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Filter */}
-        <div className="mb-4">
-          <Form.Group>
-            <Form.Label className="fw-bold">Filter by Status</Form.Label>
-            <Form.Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ maxWidth: '300px' }}
-            >
-              <option value="all">All Orders</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="preparing">Preparing</option>
-              <option value="ready">Ready</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </Form.Select>
-          </Form.Group>
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+          <div>
+            <h1 className="page-title mb-1">Admin Orders</h1>
+            <p className="text-muted mb-0">Review customer orders, payments, and preparation status.</p>
+          </div>
+          <Form.Select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            style={{ maxWidth: '260px' }}
+          >
+            <option value="all">All Orders</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="preparing">Preparing</option>
+            <option value="ready">Ready</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </Form.Select>
         </div>
 
-        {/* Orders Table */}
+        {error && <Alert variant="danger" dismissible onClose={() => setError(null)}>{error}</Alert>}
+
+        <Row className="mb-4">
+          <StatCard label="Total Orders" value={stats.total} tone="total" />
+          <StatCard label="Cash on Delivery" value={stats.cod} tone="cod" />
+          <StatCard label="Card Payments" value={stats.card} tone="card" />
+          <StatCard label="Pending Payments" value={stats.pending} tone="pending" />
+          <StatCard label="Completed" value={stats.completed} tone="completed" />
+        </Row>
+
         <div className="orders-table-wrapper">
           <Table hover responsive className="orders-table">
             <thead>
@@ -164,9 +103,9 @@ function AdminOrdersPage() {
                 <th>Phone</th>
                 <th>Items</th>
                 <th>Total</th>
-                <th>Payment Method</th>
-                <th>Payment Status</th>
-                <th>Order Status</th>
+                <th>Payment</th>
+                <th>Paid</th>
+                <th>Status</th>
                 <th>Date</th>
                 <th>Actions</th>
               </tr>
@@ -174,41 +113,31 @@ function AdminOrdersPage() {
             <tbody>
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-4">
-                    <p className="text-muted">No orders found</p>
-                  </td>
+                  <td colSpan="10" className="text-center py-4 text-muted">No orders found</td>
                 </tr>
               ) : (
                 filteredOrders.map((order, index) => (
-                  <tr key={order.id} className="order-row">
+                  <tr key={order.id}>
                     <td><strong>#{index + 1}</strong></td>
                     <td>
                       <div className="customer-name">{order.customer_name || 'Guest'}</div>
                       <small className="text-muted">{order.customer_email}</small>
                     </td>
-                    <td>{order.customer_phone}</td>
-                    <td>
-                      <Badge bg="info">{order.items?.length || 0} items</Badge>
-                    </td>
-                    <td className="fw-bold">₹{order.total?.toFixed(2)}</td>
+                    <td>{order.customer_phone || '-'}</td>
+                    <td><Badge bg="info">{order.items?.length || 0} items</Badge></td>
+                    <td className="fw-bold">Rs. {Number(order.total || 0).toFixed(2)}</td>
                     <td>
                       <Badge bg={order.payment_method === 'cod' ? 'warning' : 'success'}>
-                        {order.payment_method === 'cod' ? '💵 COD' : '💳 Card'}
+                        {order.payment_method === 'cod' ? 'COD' : 'Card'}
                       </Badge>
                     </td>
                     <td>
                       <Badge bg={order.payment_status === 'paid' ? 'success' : 'danger'}>
-                        {order.payment_status === 'paid' ? '✅ Paid' : '⏳ Unpaid'}
+                        {order.payment_status}
                       </Badge>
                     </td>
-                    <td>
-                      <Badge bg={getStatusColor(order.status)}>
-                        {order.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      <small>{new Date(order.created_at).toLocaleDateString()}</small>
-                    </td>
+                    <td><Badge bg={getStatusColor(order.status)}>{order.status}</Badge></td>
+                    <td><small>{new Date(order.created_at).toLocaleDateString()}</small></td>
                     <td>
                       <Button
                         variant="primary"
@@ -229,30 +158,29 @@ function AdminOrdersPage() {
         </div>
       </Container>
 
-      {/* Order Detail Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
         <Modal.Header closeButton>
-          <Modal.Title>📋 Order Details #{selectedOrder?.invoice_number}</Modal.Title>
+          <Modal.Title>Order Details #{selectedOrder?.invoice_number}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedOrder && (
             <>
               <div className="order-detail-section">
-                <h6 className="section-title">👤 Customer Information</h6>
+                <h6 className="section-title">Customer Information</h6>
                 <Row>
                   <Col md={6}>
-                    <p><strong>Name:</strong> {selectedOrder.customer_name}</p>
-                    <p><strong>Email:</strong> {selectedOrder.customer_email}</p>
+                    <p><strong>Name:</strong> {selectedOrder.customer_name || 'Guest'}</p>
+                    <p><strong>Email:</strong> {selectedOrder.customer_email || '-'}</p>
                   </Col>
                   <Col md={6}>
-                    <p><strong>Phone:</strong> {selectedOrder.customer_phone}</p>
-                    <p><strong>Address:</strong> {selectedOrder.customer_address}</p>
+                    <p><strong>Phone:</strong> {selectedOrder.customer_phone || '-'}</p>
+                    <p><strong>Address:</strong> {selectedOrder.customer_address || '-'}</p>
                   </Col>
                 </Row>
               </div>
 
               <div className="order-detail-section">
-                <h6 className="section-title">📦 Order Items</h6>
+                <h6 className="section-title">Order Items</h6>
                 <Table size="sm" bordered>
                   <thead>
                     <tr>
@@ -263,12 +191,12 @@ function AdminOrdersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedOrder.items?.map(item => (
+                    {selectedOrder.items?.map((item) => (
                       <tr key={item.id}>
                         <td>{item.menu_name}</td>
                         <td>{item.quantity}</td>
-                        <td>₹{item.price}</td>
-                        <td>₹{(item.quantity * item.price).toFixed(2)}</td>
+                        <td>Rs. {Number(item.price || 0).toFixed(2)}</td>
+                        <td>Rs. {Number(item.quantity * item.price || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -276,35 +204,25 @@ function AdminOrdersPage() {
               </div>
 
               <div className="order-detail-section">
-                <h6 className="section-title">💰 Payment Information</h6>
+                <h6 className="section-title">Payment Information</h6>
                 <Row>
                   <Col md={6}>
-                    <p><strong>Subtotal:</strong> ₹{selectedOrder.subtotal?.toFixed(2)}</p>
-                    <p><strong>Tax:</strong> ₹{selectedOrder.tax_amount?.toFixed(2)}</p>
-                    <p><strong>Total:</strong> ₹{selectedOrder.total?.toFixed(2)}</p>
+                    <p><strong>Subtotal:</strong> Rs. {Number(selectedOrder.subtotal || 0).toFixed(2)}</p>
+                    <p><strong>Tax:</strong> Rs. {Number(selectedOrder.tax_amount || 0).toFixed(2)}</p>
+                    <p><strong>Total:</strong> Rs. {Number(selectedOrder.total || 0).toFixed(2)}</p>
                   </Col>
                   <Col md={6}>
-                    <p>
-                      <strong>Payment Method:</strong>{' '}
-                      <Badge bg={selectedOrder.payment_method === 'cod' ? 'warning' : 'success'}>
-                        {selectedOrder.payment_method === 'cod' ? 'Cash on Delivery' : 'Card Payment'}
-                      </Badge>
-                    </p>
-                    <p>
-                      <strong>Payment Status:</strong>{' '}
-                      <Badge bg={selectedOrder.payment_status === 'paid' ? 'success' : 'danger'}>
-                        {selectedOrder.payment_status}
-                      </Badge>
-                    </p>
+                    <p><strong>Payment Method:</strong> {selectedOrder.payment_method === 'cod' ? 'Cash on Delivery' : 'Card Payment'}</p>
+                    <p><strong>Payment Status:</strong> {selectedOrder.payment_status}</p>
                   </Col>
                 </Row>
               </div>
 
               <div className="order-detail-section">
-                <h6 className="section-title">📊 Update Order Status</h6>
+                <h6 className="section-title">Update Order Status</h6>
                 <Form.Select
                   defaultValue={selectedOrder.status}
-                  onChange={(e) => updateOrderStatus(selectedOrder.id, e.target.value)}
+                  onChange={(event) => updateOrderStatus(selectedOrder.id, event.target.value)}
                 >
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
@@ -322,6 +240,19 @@ function AdminOrdersPage() {
   );
 }
 
+function StatCard({ label, value, tone }) {
+  return (
+    <Col xs={12} md={6} lg className="mb-3">
+      <Card className={`stat-card ${tone}`}>
+        <Card.Body>
+          <div className="stat-value">{value}</div>
+          <div className="stat-label">{label}</div>
+        </Card.Body>
+      </Card>
+    </Col>
+  );
+}
+
 function getStatusColor(status) {
   const colors = {
     pending: 'warning',
@@ -331,6 +262,7 @@ function getStatusColor(status) {
     completed: 'success',
     cancelled: 'danger'
   };
+
   return colors[status] || 'secondary';
 }
 

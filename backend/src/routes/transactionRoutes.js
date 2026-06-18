@@ -5,6 +5,7 @@ const {
   getInvoice,
   updateInvoiceStatus,
   getCustomerInvoices,
+  getCustomerInvoicesByEmail,
   deleteInvoice,
   getPayments,
   createPayment,
@@ -25,7 +26,9 @@ const router = express.Router();
 router.get('/invoices', getInvoices);
 router.post('/invoices', createInvoice);
 router.get('/invoices/:id', getInvoice);
+router.get('/invoices/customer/email/:email', getCustomerInvoicesByEmail);
 router.put('/invoices/:id/status', updateInvoiceStatus);
+router.put('/invoices/:id', updateInvoiceStatus);
 router.get('/invoices/customer/:customerId', getCustomerInvoices);
 router.delete('/invoices/:id', deleteInvoice);
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, Form, Button, Alert, Spinner, Container, Row, Col, Tabs, Tab } from 'react-bootstrap';
-import axios from 'axios';
+import { authAPI } from '../services/api';
 import '../styles/AuthPage.css';
 
 function CustomerAuthPage() {
@@ -28,7 +28,7 @@ function CustomerAuthPage() {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await authAPI.login({
         ...loginData,
         role: 'customer'
       });
@@ -54,7 +54,7 @@ function CustomerAuthPage() {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post('http://localhost:5000/api/auth/register', registerData);
+      const response = await authAPI.register(registerData);
 
       // Store token and user data
       localStorage.setItem('token', response.data.token);

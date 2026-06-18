@@ -6,6 +6,27 @@ const api = axios.create({
   baseURL: `${API_URL}/api`
 });
 
+api.interceptors.request.use((config) => {
+  const adminToken = localStorage.getItem('adminToken');
+  const customerToken = localStorage.getItem('token');
+  const token = config.url?.startsWith('/auth') ? null : (adminToken || customerToken);
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+export const authAPI = {
+  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/auth/register', data),
+  createAdmin: (data) => api.post('/auth/admin/setup', data),
+  verify: (token) => api.get('/auth/verify', {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+};
+
 // Food Types
 export const foodTypeAPI = {
   getAll: () => api.get('/foodtypes'),
@@ -48,6 +69,7 @@ export const invoiceAPI = {
   getById: (id) => api.get(`/invoices/${id}`),
   updateStatus: (id, data) => api.put(`/invoices/${id}/status`, data),
   getByCustomer: (customerId) => api.get(`/invoices/customer/${customerId}`),
+  getByCustomerEmail: (email) => api.get(`/invoices/customer/email/${encodeURIComponent(email)}`),
   delete: (id) => api.delete(`/invoices/${id}`)
 };
 

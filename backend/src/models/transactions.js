@@ -2,9 +2,12 @@ const { dbRun, dbGet, dbAll } = require('../config/database');
 const { generateId, generateInvoiceNumber } = require('../utils/helpers');
 
 class Invoice {
-  static async create(customerId, items, taxId) {
+  static async create(customerId, items, taxId, options = {}) {
     const id = generateId();
     const invoiceNumber = generateInvoiceNumber();
+    const paymentMethod = options.paymentMethod || 'cod';
+    const paymentStatus = options.paymentStatus || (paymentMethod === 'card' ? 'paid' : 'unpaid');
+    const status = options.status || 'pending';
     
     // Calculate totals
     let subtotal = 0;
@@ -25,8 +28,10 @@ class Invoice {
 
     // Insert invoice
     await dbRun(
-      'INSERT INTO invoice (id, invoice_number, customer_id, subtotal, tax_amount, total) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, invoiceNumber, customerId, subtotal, taxAmount, total]
+      `INSERT INTO invoice
+        (id, invoice_number, customer_id, subtotal, tax_amount, total, status, payment_method, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, invoiceNumber, customerId, subtotal, taxAmount, total, status, paymentMethod, paymentStatus]
     );
 
     // Insert invoice items
@@ -41,28 +46,43 @@ class Invoice {
     return this.getById(id);
   }
 
-  static async createGuest(customerName, customerPhone, customerEmail, customerAddress, items, taxId) {
+  static async createGuest(customerName, customerPhone, customerEmail, customerAddress, items, taxId, options = {}) {
     const { Customer } = require('./index');
     
     // Create a guest customer
     const customer = await Customer.create(customerName, customerPhone, customerEmail, customerAddress);
     
     // Use the regular create method with the guest customer
-    return this.create(customer.id, items, taxId);
+    return this.create(customer.id, items, taxId, options);
   }
 
   static async getAll() {
-    return dbAll(`
-      SELECT i.*, c.name as customer_name, c.phone as customer_phone
+    const invoices = await dbAll(`
+      SELECT
+        i.*,
+        c.name as customer_name,
+        c.phone as customer_phone,
+        c.email as customer_email,
+        c.address as customer_address
       FROM invoice i
       LEFT JOIN customer c ON i.customer_id = c.id
       ORDER BY i.created_at DESC
     `);
+
+    return Promise.all(invoices.map(async (invoice) => ({
+      ...invoice,
+      items: await this.getItems(invoice.id)
+    })));
   }
 
   static async getById(id) {
     const invoice = await dbGet(`
-      SELECT i.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email
+      SELECT
+        i.*,
+        c.name as customer_name,
+        c.phone as customer_phone,
+        c.email as customer_email,
+        c.address as customer_address
       FROM invoice i
       LEFT JOIN customer c ON i.customer_id = c.id
       WHERE i.id = ?
@@ -70,17 +90,21 @@ class Invoice {
 
     if (!invoice) return null;
 
-    const items = await dbAll(`
-      SELECT ii.*, m.name as menu_name, m.description
-      FROM invoice_item ii
-      LEFT JOIN menu m ON ii.menu_id = m.id
-      WHERE ii.invoice_id = ?
-    `, [id]);
+    const items = await this.getItems(id);
 
     return {
       ...invoice,
       items
     };
+  }
+
+  static async getItems(invoiceId) {
+    return dbAll(`
+      SELECT ii.*, m.name as menu_name, m.description
+      FROM invoice_item ii
+      LEFT JOIN menu m ON ii.menu_id = m.id
+      WHERE ii.invoice_id = ?
+    `, [invoiceId]);
   }
 
   static async update(id, status) {
@@ -92,13 +116,33 @@ class Invoice {
   }
 
   static async getByCustomer(customerId) {
-    return dbAll(`
-      SELECT i.*, c.name as customer_name
+    const invoices = await dbAll(`
+      SELECT i.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email
       FROM invoice i
       LEFT JOIN customer c ON i.customer_id = c.id
       WHERE i.customer_id = ?
       ORDER BY i.created_at DESC
     `, [customerId]);
+
+    return Promise.all(invoices.map(async (invoice) => ({
+      ...invoice,
+      items: await this.getItems(invoice.id)
+    })));
+  }
+
+  static async getByCustomerEmail(email) {
+    const invoices = await dbAll(`
+      SELECT i.*, c.name as customer_name, c.phone as customer_phone, c.email as customer_email
+      FROM invoice i
+      LEFT JOIN customer c ON i.customer_id = c.id
+      WHERE lower(c.email) = lower(?)
+      ORDER BY i.created_at DESC
+    `, [email]);
+
+    return Promise.all(invoices.map(async (invoice) => ({
+      ...invoice,
+      items: await this.getItems(invoice.id)
+    })));
   }
 
   static async delete(id) {

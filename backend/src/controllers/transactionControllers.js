@@ -13,7 +13,17 @@ exports.getInvoices = async (req, res) => {
 
 exports.createInvoice = async (req, res) => {
   try {
-    const { customerId, items, taxId, customerName, customerPhone, customerEmail, customerAddress } = req.body;
+    const {
+      customerId,
+      items,
+      taxId,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerAddress,
+      paymentMethod,
+      paymentStatus
+    } = req.body;
     
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Items are required' });
@@ -24,7 +34,15 @@ exports.createInvoice = async (req, res) => {
     if (!finalCustomerId && customerName && customerPhone) {
       // For guest orders, we'll use a special guest customer or create one
       // For now, store guest info in the invoice
-      const invoice = await Invoice.createGuest(customerName, customerPhone, customerEmail, customerAddress, items, taxId);
+      const invoice = await Invoice.createGuest(
+        customerName,
+        customerPhone,
+        customerEmail,
+        customerAddress,
+        items,
+        taxId,
+        { paymentMethod, paymentStatus }
+      );
       return res.status(201).json(invoice);
     }
 
@@ -32,7 +50,7 @@ exports.createInvoice = async (req, res) => {
       return res.status(400).json({ error: 'Either customerId or guest customer information is required' });
     }
 
-    const invoice = await Invoice.create(finalCustomerId, items, taxId);
+    const invoice = await Invoice.create(finalCustomerId, items, taxId, { paymentMethod, paymentStatus });
     res.status(201).json(invoice);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -70,6 +88,16 @@ exports.getCustomerInvoices = async (req, res) => {
   try {
     const { customerId } = req.params;
     const invoices = await Invoice.getByCustomer(customerId);
+    res.json(invoices);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getCustomerInvoicesByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const invoices = await Invoice.getByCustomerEmail(email);
     res.json(invoices);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -202,7 +230,7 @@ exports.deleteReview = async (req, res) => {
 exports.getAnalytics = async (req, res) => {
   try {
     const totalRevenue = await dbAll(`
-      SELECT SUM(total) as total_revenue FROM invoice WHERE status = 'paid'
+      SELECT SUM(total) as total_revenue FROM invoice WHERE payment_status = 'paid'
     `);
     
     const totalInvoices = await dbAll(`
@@ -232,7 +260,7 @@ exports.getAnalytics = async (req, res) => {
         COUNT(*) as invoice_count,
         SUM(total) as monthly_revenue
       FROM invoice
-      WHERE status = 'paid'
+      WHERE payment_status = 'paid'
       GROUP BY month
       ORDER BY month DESC
       LIMIT 12

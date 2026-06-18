@@ -18,10 +18,12 @@ function OrderPage() {
     address: '',
     email: ''
   });
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     // Get user info from localStorage if logged in
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setCurrentUser(user?.email ? user : null);
     if (user.name) {
       setCustomerInfo({
         name: user.name || '',
@@ -88,6 +90,7 @@ function OrderPage() {
       
       // Create invoice with payment method
       const invoiceData = {
+        customerId: currentUser?.customerId,
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
         customerEmail: customerInfo.email,
@@ -110,7 +113,12 @@ function OrderPage() {
       setOrderPlaced(true);
       setCart([]);
       setShowCheckout(false);
-      setCustomerInfo({ name: '', phone: '', address: '', email: '' });
+      setCustomerInfo({
+        name: currentUser?.name || '',
+        phone: currentUser?.phone || '',
+        address: '',
+        email: currentUser?.email || ''
+      });
       setPaymentMethod('cod');
       
       setTimeout(() => {

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { dbRun, dbGet } = require('../config/database');
+const { Customer } = require('../models');
 const { generateId } = require('../utils/helpers');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -24,6 +25,8 @@ exports.registerCustomer = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = generateId();
 
+    const customer = await Customer.create(name, phone, email, '');
+
     // Create user
     await dbRun(
       'INSERT INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
@@ -36,7 +39,7 @@ exports.registerCustomer = async (req, res) => {
     res.status(201).json({
       message: 'Customer registered successfully',
       token,
-      user: { id: userId, email, name, phone, role: 'customer' }
+      user: { id: userId, email, name, phone, role: 'customer', customerId: customer.id }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -68,6 +71,10 @@ exports.login = async (req, res) => {
     // Generate token
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
+    const customer = user.role === 'customer'
+      ? await dbGet('SELECT id FROM customer WHERE lower(email) = lower(?) ORDER BY created_at DESC LIMIT 1', [user.email])
+      : null;
+
     res.json({
       message: 'Login successful',
       token,
@@ -76,7 +83,8 @@ exports.login = async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        customerId: customer?.id
       }
     });
   } catch (error) {
