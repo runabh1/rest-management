@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Table, Modal, Form } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
-import { invoiceAPI } from '../services/api';
+import { invoiceAPI, reviewAPI } from '../services/api';
 
 function CustomerOrdersPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Review modal states
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -17,22 +25,70 @@ function CustomerOrdersPage() {
       return;
     }
 
-    fetchOrders(user);
+    fetchOrdersAndReviews(user);
   }, [navigate]);
 
-  const fetchOrders = async (user) => {
+  const fetchOrdersAndReviews = async (user) => {
     try {
       setLoading(true);
-      const response = user.customerId
-        ? await invoiceAPI.getByCustomer(user.customerId)
-        : await invoiceAPI.getByCustomerEmail(user.email);
+      const ordersPromise = user.customerId
+        ? invoiceAPI.getByCustomer(user.customerId)
+        : invoiceAPI.getByCustomerEmail(user.email);
 
-      setOrders(response.data);
+      const reviewsPromise = user.customerId
+        ? reviewAPI.getByCustomer(user.customerId)
+        : Promise.resolve({ data: [] });
+
+      const [ordersRes, reviewsRes] = await Promise.all([
+        ordersPromise,
+        reviewsPromise
+      ]);
+
+      setOrders(ordersRes.data);
+      setReviews(reviewsRes.data);
       setError(null);
     } catch (err) {
-      setError('Failed to load your orders');
+      setError('Failed to load your orders or reviews');
+      console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenReviewModal = (order) => {
+    setSelectedOrderForReview(order);
+    setRating(5);
+    setComment('');
+    setShowReviewModal(true);
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedOrderForReview) return;
+
+    try {
+      setSubmittingReview(true);
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const customerId = user.customerId || selectedOrderForReview.customer_id;
+
+      if (!customerId) {
+        throw new Error('Customer ID is required to submit a review.');
+      }
+
+      await reviewAPI.create({
+        invoiceId: selectedOrderForReview.id,
+        customerId,
+        rating,
+        comment
+      });
+
+      setShowReviewModal(false);
+      await fetchOrdersAndReviews(user);
+    } catch (err) {
+      setError(err.message || 'Failed to submit review');
+      console.error(err);
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -69,32 +125,68 @@ function CustomerOrdersPage() {
                   <span>Order #{order.invoice_number}</span>
                   <Badge bg={getStatusColor(order.status)}>{order.status}</Badge>
                 </Card.Header>
-                <Card.Body>
-                  <Table size="sm" borderless className="mb-3">
-                    <tbody>
-                      {(order.items || []).map((item) => (
-                        <tr key={item.id}>
-                          <td>{item.quantity} x {item.menu_name}</td>
-                          <td className="text-end">Rs. {(item.quantity * item.price).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                <Card.Body className="d-flex flex-column justify-content-between">
+                  <div>
+                    <Table size="sm" borderless className="mb-3">
+                      <tbody>
+                        {(order.items || []).map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.quantity} x {item.menu_name}</td>
+                            <td className="text-end">Rs. {(item.quantity * item.price).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
 
-                  <div className="d-flex justify-content-between border-top pt-3">
-                    <span className="fw-bold">Total</span>
-                    <span className="fw-bold">Rs. {Number(order.total || 0).toFixed(2)}</span>
+                    <div className="d-flex justify-content-between border-top pt-3">
+                      <span className="fw-bold">Total</span>
+                      <span className="fw-bold">Rs. {Number(order.total || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2 mt-3">
+                      <Badge bg={order.payment_method === 'cod' ? 'warning' : 'success'}>
+                        {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Card'}
+                      </Badge>
+                      <Badge bg={order.payment_status === 'paid' ? 'success' : 'danger'}>
+                        {order.payment_status}
+                      </Badge>
+                      <Badge bg="secondary">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="d-flex flex-wrap gap-2 mt-3">
-                    <Badge bg={order.payment_method === 'cod' ? 'warning' : 'success'}>
-                      {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Card'}
-                    </Badge>
-                    <Badge bg={order.payment_status === 'paid' ? 'success' : 'danger'}>
-                      {order.payment_status}
-                    </Badge>
-                    <Badge bg="secondary">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </Badge>
+
+                  {/* Review / Rating Section */}
+                  <div>
+                    {(() => {
+                      const existingReview = reviews.find(r => r.invoice_id === order.id);
+                      if (existingReview) {
+                        return (
+                          <div className="mt-3 border-top pt-3">
+                            <span className="text-muted small fw-bold">Your Review:</span>
+                            <div className="text-warning my-1">
+                              {'★'.repeat(existingReview.rating)}
+                              {'☆'.repeat(5 - existingReview.rating)}
+                            </div>
+                            {existingReview.comment && (
+                              <p className="mb-0 small text-muted font-italic bg-light p-2 rounded">
+                                "{existingReview.comment}"
+                              </p>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline-primary"
+                            className="mt-3 w-100"
+                            onClick={() => handleOpenReviewModal(order)}
+                          >
+                            ⭐ Rate This Order
+                          </Button>
+                        );
+                      }
+                    })()}
                   </div>
                 </Card.Body>
               </Card>
@@ -102,6 +194,43 @@ function CustomerOrdersPage() {
           ))}
         </Row>
       )}
+
+      {/* Review Modal */}
+      <Modal show={showReviewModal} onHide={() => setShowReviewModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>⭐ Rate Your Order</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleReviewSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold">Rating</Form.Label>
+              <Form.Select
+                value={rating}
+                onChange={(e) => setRating(parseInt(e.target.value))}
+              >
+                <option value={5}>⭐⭐⭐⭐⭐ Excellent</option>
+                <option value={4}>⭐⭐⭐⭐ Good</option>
+                <option value={3}>⭐⭐⭐ Average</option>
+                <option value={2}>⭐⭐ Poor</option>
+                <option value={1}>⭐ Very Poor</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold">Comment / Review</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="What did you think of the food and service?"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+            </Form.Group>
+            <Button variant="primary" type="submit" className="w-100 fw-bold" disabled={submittingReview}>
+              {submittingReview ? 'Submitting...' : 'Submit Review'}
+            </Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
     </Container>
   );
 }
