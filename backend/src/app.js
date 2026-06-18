@@ -29,6 +29,22 @@ app.use('/api/auth', authRoutes);
 app.use('/api', basicRoutes);
 app.use('/api', transactionRoutes);
 
+// Serve React frontend in production or whenever the build folder exists.
+const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+app.use(express.static(frontendBuildPath));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+
+  res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
+    if (err) {
+      next();
+    }
+  });
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
