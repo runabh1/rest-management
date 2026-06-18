@@ -12,7 +12,7 @@ function CustomerAuthPage() {
   const [activeTab, setActiveTab] = useState('login');
 
   // Login state
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ email: 'customer@rest.com', password: 'customer123' });
 
   // Register state
   const [registerData, setRegisterData] = useState({

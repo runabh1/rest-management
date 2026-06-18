@@ -1,5 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 const dbPath = path.join(__dirname, '../../restaurant.db');
 
@@ -139,6 +141,9 @@ function initializeDatabase() {
 function runMigrations() {
   addColumnIfMissing('invoice', 'payment_method', "TEXT DEFAULT 'cod'");
   addColumnIfMissing('invoice', 'payment_status', "TEXT DEFAULT 'unpaid'");
+
+  // Seed default users after a short delay to let migrations finish
+  setTimeout(() => seedDefaultUsers(), 500);
 }
 
 function addColumnIfMissing(tableName, columnName, definition) {
@@ -156,6 +161,66 @@ function addColumnIfMissing(tableName, columnName, definition) {
       if (alterErr) {
         console.error(`Error adding ${tableName}.${columnName}:`, alterErr);
       }
+    });
+  });
+}
+
+async function seedDefaultUsers() {
+  try {
+    // --- Default Admin ---
+    const adminEmail = 'admin@rest.com';
+    const adminRow = await promiseGet('SELECT id FROM users WHERE email = ? AND role = ?', [adminEmail, 'admin']);
+    if (!adminRow) {
+      const adminId = uuidv4();
+      const hashedAdminPass = await bcrypt.hash('admin123', 10);
+      await promiseRun(
+        'INSERT INTO users (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)',
+        [adminId, adminEmail, hashedAdminPass, 'Admin', 'admin']
+      );
+      console.log('✅ Default admin seeded  →  admin@rest.com / admin123');
+    }
+
+    // --- Default Customer ---
+    const custEmail = 'customer@rest.com';
+    const custRow = await promiseGet('SELECT id FROM users WHERE email = ? AND role = ?', [custEmail, 'customer']);
+    if (!custRow) {
+      const custId = uuidv4();
+      const customerId = uuidv4();
+      const hashedCustPass = await bcrypt.hash('customer123', 10);
+
+      // Create customer record first (needed for orders)
+      await promiseRun(
+        'INSERT INTO customer (id, name, phone, email, address) VALUES (?, ?, ?, ?, ?)',
+        [customerId, 'Default Customer', '9999999999', custEmail, '']
+      );
+
+      // Create user account
+      await promiseRun(
+        'INSERT INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
+        [custId, custEmail, hashedCustPass, 'Default Customer', '9999999999', 'customer']
+      );
+      console.log('✅ Default customer seeded  →  customer@rest.com / customer123');
+    }
+  } catch (err) {
+    console.error('Error seeding default users:', err);
+  }
+}
+
+// Tiny promise wrappers used only by the seed function above
+function promiseRun(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
+function promiseGet(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
     });
   });
 }

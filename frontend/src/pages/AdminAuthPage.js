@@ -12,7 +12,7 @@ function AdminAuthPage() {
   const [isSetup, setIsSetup] = useState(false);
 
   // Login state
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ email: 'admin@rest.com', password: 'admin123' });
 
   // Setup state
   const [setupData, setSetupData] = useState({
